@@ -4,11 +4,21 @@ project(ChessServer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# נסה למצוא ixwebsocket, אם לא - השתמש בנתיב ידני
-find_package(ixwebsocket CONFIG QUIET)
+# תיקון runtime library mismatch
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:Debug>")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+endif()
 
+# הגדר OpenCV paths
+set(OPENCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpenCV_451")
+set(OPENCV_INCLUDE_DIR "${OPENCV_DIR}/include")
+set(OPENCV_LIB_DIR "${OPENCV_DIR}/bin")
+
+# נסה למצוא ixwebsocket
+find_package(ixwebsocket CONFIG QUIET)
 if(NOT ixwebsocket_FOUND)
-    # נתיב ידני ל-ixwebsocket
     set(IXWEBSOCKET_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows/include")
     set(IXWEBSOCKET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows/lib")
 endif()
@@ -25,19 +35,23 @@ add_executable(server ${SERVER_SOURCES})
 # Include directories
 target_include_directories(server PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../external
+    ${CMAKE_CURRENT_SOURCE_DIR}/../external/nlohmann
+    ${OPENCV_INCLUDE_DIR}
+    ${IXWEBSOCKET_INCLUDE_DIR}
 )
 
-if(ixwebsocket_FOUND)
-    target_link_libraries(server 
-        common
-        ixwebsocket::ixwebsocket
-    )
-else()
-    target_include_directories(server PRIVATE ${IXWEBSOCKET_INCLUDE_DIR})
-    target_link_directories(server PRIVATE ${IXWEBSOCKET_LIB_DIR})
-    target_link_libraries(server 
-        common
-        ixwebsocket
-    )
-endif()
+# Link directories
+target_link_directories(server PRIVATE 
+    ${OPENCV_LIB_DIR}
+    ${IXWEBSOCKET_LIB_DIR}
+)
+
+# קישור לספריות
+target_link_libraries(server 
+    common
+    $<$<CONFIG:Debug>:${OPENCV_LIB_DIR}/opencv_world451d.lib>
+    $<$<CONFIG:Release>:${OPENCV_LIB_DIR}/opencv_world451.lib>
+    ixwebsocket
+    crypt32
+    bcrypt
+)
