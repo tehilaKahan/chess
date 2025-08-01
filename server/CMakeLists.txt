@@ -29,24 +29,21 @@ set(SERVER_SOURCES
     src/game.cpp
 )
 
-# צור executable
 add_executable(server ${SERVER_SOURCES})
 
-# Include directories
 target_include_directories(server PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/nlohmann
+    ${CMAKE_CURRENT_SOURCE_DIR}/../client/src
     ${OPENCV_INCLUDE_DIR}
     ${IXWEBSOCKET_INCLUDE_DIR}
 )
 
-# Link directories
 target_link_directories(server PRIVATE 
     ${OPENCV_LIB_DIR}
     ${IXWEBSOCKET_LIB_DIR}
 )
 
-# קישור לספריות
 target_link_libraries(server 
     common
     $<$<CONFIG:Debug>:${OPENCV_LIB_DIR}/opencv_world451d.lib>
@@ -54,4 +51,6 @@ target_link_libraries(server
     ixwebsocket
     crypt32
     bcrypt
+    ws2_32
+    winmm
 )

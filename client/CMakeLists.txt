@@ -4,22 +4,30 @@ project(ChessClient)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# נסה למצוא ספריות, אם לא - השתמש בנתיבים ידניים
-find_package(ixwebsocket CONFIG QUIET)
-find_package(SFML 2.5 COMPONENTS audio QUIET)
+# תיקון runtime library mismatch
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:Debug>")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+endif()
 
 # הגדר OpenCV paths
 set(OPENCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpenCV_451")
 set(OPENCV_INCLUDE_DIR "${OPENCV_DIR}/include")
 set(OPENCV_LIB_DIR "${OPENCV_DIR}/bin")
 
+# נסה למצוא ixwebsocket
+find_package(ixwebsocket CONFIG QUIET)
+if(NOT ixwebsocket_FOUND)
+    set(IXWEBSOCKET_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows/include")
+    set(IXWEBSOCKET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows/lib")
+endif()
+
 # קבצי הקוח
 set(CLIENT_SOURCES
     src/client.cpp
     src/gameClient.cpp
     src/gameRenderer.cpp
-    src/graphics.cpp
-    src/img.cpp
     src/mockImg.cpp
     src/soundPlayer.cpp
     src/scoreBoard.cpp
@@ -34,28 +42,27 @@ add_executable(client ${CLIENT_SOURCES})
 target_include_directories(client PRIVATE 
     ${OPENCV_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../external
+    ${CMAKE_CURRENT_SOURCE_DIR}/../external/nlohmann
+    ${IXWEBSOCKET_INCLUDE_DIR}
 )
 
 # Link directories
-target_link_directories(client PRIVATE ${OPENCV_LIB_DIR})
+target_link_directories(client PRIVATE 
+    ${OPENCV_LIB_DIR}
+    ${IXWEBSOCKET_LIB_DIR}
+)
 
-# קישור לספריות בסיסיות
+# קישור לכל הספריות הנדרשות
 target_link_libraries(client 
     common
     $<$<CONFIG:Debug>:${OPENCV_LIB_DIR}/opencv_world451d.lib>
     $<$<CONFIG:Release>:${OPENCV_LIB_DIR}/opencv_world451.lib>
+    ixwebsocket
+    crypt32
+    bcrypt
+    ws2_32
+    winmm
 )
-
-# הוסף ixwebsocket אם נמצא
-if(ixwebsocket_FOUND)
-    target_link_libraries(client ixwebsocket::ixwebsocket)
-endif()
-
-# הוסף SFML אם נמצא
-if(SFML_FOUND)
-    target_link_libraries(client sfml-audio sfml-system)
-endif()
 
 # העתק OpenCV DLLs
 if(WIN32)

@@ -18,7 +18,7 @@ public:
     std::shared_ptr<Graphics> copy() const;
     void reset(const Command& cmd);
     void update(int now_ms);
-    Img& Graphics::get_img() ;
+    Img& get_img() ;
 
 private:
     std::filesystem::path sprites_folder_;

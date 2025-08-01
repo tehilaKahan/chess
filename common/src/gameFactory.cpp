@@ -1,5 +1,5 @@
 #include "gameFactory.hpp"
-#include "../../client/src/img.hpp"  // תקן את הנתיב
+#include "img.hpp"  // תקן את הנתיב
 #include "pieceFactory.hpp"
 #include "../../server/src/game.hpp"  // הוסף את זה
 #include <filesystem>

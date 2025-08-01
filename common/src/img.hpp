@@ -10,18 +10,24 @@ public:
     Img();
     virtual ~Img() = default;
 
-    Img::Img(const Img& other) {
-        img = other.img.clone();  // clone() של OpenCV מבצע העתקה עמוקה
-    }
+    // Img::Img(const Img& other) {
+    //     img = other.img.clone();  // clone() של OpenCV מבצע העתקה עמוקה
+    // }
+    Img(const Img& other);
+
 
     void create_blank(int width, int height, bool with_alpha = true);
 int width() const;
-int height() const;
+int height() const;    
+std::shared_ptr<Img> clone() const;
 
 
-std::shared_ptr<Img> Img::clone() const {
-    return std::make_shared<Img>(*this);  // משתמש בהעתקה לעומק
-}
+
+
+// std::shared_ptr<Img> Img::clone() const {
+//     return std::make_shared<Img>(*this);  // משתמש בהעתקה לעומק
+// }
+
     /**
      * Load image from path and optionally resize.
      * 

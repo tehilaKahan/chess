@@ -137,3 +137,11 @@ int Img::width() const {
 int Img::height() const {
     return img.rows;
 }
+
+Img::Img(const Img& other) {
+    img = other.img.clone();  // clone() של OpenCV מבצע העתקה עמוקה
+}
+
+    std::shared_ptr<Img> Img::clone() const {
+    return std::make_shared<Img>(*this);  // משתמש בהעתקה לעומק
+}

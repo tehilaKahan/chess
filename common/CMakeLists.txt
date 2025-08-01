@@ -17,10 +17,8 @@ set(OPENCV_LIB_DIR "${OPENCV_DIR}/bin")
 file(GLOB_RECURSE COMMON_SOURCES "src/*.cpp")
 file(GLOB_RECURSE COMMON_HEADERS "src/*.hpp")
 
-# צור ספרייה סטטית
 add_library(common STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
 
-# Include directories
 target_include_directories(common PUBLIC 
     src
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/nlohmann
@@ -28,13 +26,9 @@ target_include_directories(common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../client/src
 )
 
-# Link directories
 target_link_directories(common PRIVATE ${OPENCV_LIB_DIR})
 
-# קישור ל-OpenCV
 target_link_libraries(common 
     $<$<CONFIG:Debug>:${OPENCV_LIB_DIR}/opencv_world451d.lib>
     $<$<CONFIG:Release>:${OPENCV_LIB_DIR}/opencv_world451.lib>
 )
-
-message(STATUS "Common sources: ${COMMON_SOURCES}")
