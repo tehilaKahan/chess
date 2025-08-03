@@ -66,6 +66,13 @@
     #define closesocket close
 #endif
 
+#include <opencv2/opencv.hpp>
+#include "gameClient.hpp"
+#include "../../common/src/cell.hpp"
+#include "../../common/src/command.hpp"
+#include <sstream>
+#include <algorithm>
+
 class NetworkManager {
 public:
     static bool initialize() {
@@ -84,8 +91,135 @@ public:
     }
 };
 
+class NetworkedChessClient {
+private:
+    SOCKET socket;
+    GameClient gameClient;
+    
+    // משתני UI לבחירת חיילים
+    Cell selected_cell_p1 {6,0};
+    Cell selected_cell_p2 {0,0};
+    bool selecting_source_p1 = true;
+    bool selecting_source_p2 = true;
+    Cell src_p1, dst_p1;
+    Cell src_p2, dst_p2;
+    std::string selected_piece_id_p1;
+    std::string selected_piece_id_p2;
+    
+public:
+    NetworkedChessClient(SOCKET s) : socket(s) {}
+    
+    void sendCommand(const std::string& piece_id, const Cell& src, const Cell& dst) {
+        std::string message = "MOVE:" + piece_id + ":" + 
+                             std::to_string(src.row) + ":" + std::to_string(src.col) + ":" +
+                             std::to_string(dst.row) + ":" + std::to_string(dst.col);
+        
+        send(socket, message.c_str(), message.length(), 0);
+        std::cout << "[CLIENT] Sent command: " << message << std::endl;
+    }
+    
+    void processServerMessage(const std::string& message) {
+        if (message.substr(0, 6) == "EVENT:") {
+            // פרסור אירוע מהשרת
+            size_t firstColon = message.find(':', 6);
+            if (firstColon != std::string::npos) {
+                std::string event = message.substr(6, firstColon - 6);
+                std::string data = message.substr(firstColon + 1);
+                
+                // העברת האירוע ל-GameClient
+                gameClient.on_websocket_message(event, data);
+            }
+        }
+    }
+    
+    void handleInput(int key) {
+        gameClient.handle_input(key);
+        
+        // טיפול בקלט אמיתי - כמו במשחק המקורי
+        auto clamp_cell = [](Cell& c) {
+            c.row = std::clamp(c.row, 0, 7);
+            c.col = std::clamp(c.col, 0, 7);
+        };
+        
+        // שחקן 1 (לבן) - תנועה (WASD)
+        if (key == 'w' || key == 'W') {
+            selected_cell_p1.row--;
+            clamp_cell(selected_cell_p1);
+        } else if (key == 's' || key == 'S') {
+            selected_cell_p1.row++;
+            clamp_cell(selected_cell_p1);
+        } else if (key == 'a' || key == 'A') {
+            selected_cell_p1.col--;
+            clamp_cell(selected_cell_p1);
+        } else if (key == 'd' || key == 'D') {
+            selected_cell_p1.col++;
+            clamp_cell(selected_cell_p1);
+        }
+        // שחקן 2 (שחור) - תנועה (IJKL)
+        else if (key == 'i' || key == 'I') {
+            selected_cell_p2.row--;
+            clamp_cell(selected_cell_p2);
+        } else if (key == 'k' || key == 'K') {
+            selected_cell_p2.row++;
+            clamp_cell(selected_cell_p2);
+        } else if (key == 'j' || key == 'J') {
+            selected_cell_p2.col--;
+            clamp_cell(selected_cell_p2);
+        } else if (key == 'l' || key == 'L') {
+            selected_cell_p2.col++;
+            clamp_cell(selected_cell_p2);
+        }
+        // שחקן 1 - בחירה (רווח)
+        else if (key == 32) {
+            if (selecting_source_p1) {
+                src_p1 = selected_cell_p1;
+                selected_piece_id_p1 = "PW_pos_" + std::to_string(src_p1.row) + "_" + std::to_string(src_p1.col);
+                selecting_source_p1 = false;
+                std::cout << "[CLIENT] Selected source: " << selected_piece_id_p1 << std::endl;
+            } else {
+                dst_p1 = selected_cell_p1;
+                // שלח פקודה אמיתית!
+                sendCommand(selected_piece_id_p1, src_p1, dst_p1);
+                selecting_source_p1 = true;
+            }
+        }
+        // שחקן 2 - בחירה (אנטר)
+        else if (key == 13) {
+            if (selecting_source_p2) {
+                src_p2 = selected_cell_p2;
+                selected_piece_id_p2 = "PB_pos_" + std::to_string(src_p2.row) + "_" + std::to_string(src_p2.col);
+                selecting_source_p2 = false;
+                std::cout << "[CLIENT] Selected source: " << selected_piece_id_p2 << std::endl;
+            } else {
+                dst_p2 = selected_cell_p2;
+                // שלח פקודה אמיתית!
+                sendCommand(selected_piece_id_p2, src_p2, dst_p2);
+                selecting_source_p2 = true;
+            }
+        }
+    }
+    
+    void render() {
+        gameClient.render();
+    }
+};
+
+void receiveMessages(SOCKET socket, NetworkedChessClient* client) {
+    char buffer[1024];
+    while (true) {
+        int bytesReceived = recv(socket, buffer, sizeof(buffer) - 1, 0);
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0';
+            client->processServerMessage(std::string(buffer));
+        } else {
+            std::cout << "Server disconnected" << std::endl;
+            break;
+        }
+    }
+}
+
 int main() {
-    std::cout << "=== Cross-Platform TCP Client ===" << std::endl;
+    std::cout << "=== Networked Chess Client ===" << std::endl;
     
     if (!NetworkManager::initialize()) {
         std::cout << "Network initialization failed" << std::endl;
@@ -109,7 +243,7 @@ int main() {
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 #endif
     
-    std::cout << "Connecting to server..." << std::endl;
+    std::cout << "Connecting to chess server..." << std::endl;
     if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cout << "Connection failed" << std::endl;
         closesocket(clientSocket);
@@ -117,34 +251,25 @@ int main() {
         return 1;
     }
     
-    std::cout << "Connected to server!" << std::endl;
+    std::cout << "Connected to chess server!" << std::endl;
     
-    char buffer[1024];
-    int messageCount = 0;
+    NetworkedChessClient chessClient(clientSocket);
     
+    // התחלת thread לקבלת הודעות
+    std::thread receiveThread(receiveMessages, clientSocket, &chessClient);
+    
+    // לולאת המשחק הראשית (כמו בקוד המקורי)
     while (true) {
-        messageCount++;
-        std::string message = "Client message #" + std::to_string(messageCount);
+        chessClient.render();
         
-        std::cout << "[CLIENT] Sending: " << message << std::endl;
-        send(clientSocket, message.c_str(), message.length(), 0);
-        
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-        if (bytesReceived > 0) {
-            buffer[bytesReceived] = '\0';
-            std::cout << "[CLIENT] Received: " << buffer << std::endl;
-        } else {
-            std::cout << "Server disconnected" << std::endl;
-            break;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        
-        if (messageCount >= 10) {
-            std::cout << "Sent 10 messages, disconnecting..." << std::endl;
-            break;
+        int key = cv::waitKey(50);
+        if (key == 27) break; // ESC
+        if (key != -1) {
+            chessClient.handleInput(key);
         }
     }
+    
+    receiveThread.join();
     
     closesocket(clientSocket);
     NetworkManager::cleanup();

@@ -1,7 +1,6 @@
 #include "gameFactory.hpp"
 #include "img.hpp"  // תקן את הנתיב
 #include "pieceFactory.hpp"
-#include "../../server/src/game.hpp"  // הוסף את זה
 #include <filesystem>
 #include <memory>
 #include <iostream>

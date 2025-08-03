@@ -26,7 +26,6 @@ endif()
 # קבצי השרת
 set(SERVER_SOURCES
     src/server.cpp
-    src/game.cpp
 )
 
 add_executable(server ${SERVER_SOURCES})
